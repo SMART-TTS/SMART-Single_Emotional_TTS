@@ -13,7 +13,7 @@ def adjust_learning_rate(optimizer, step_num, warmup_step=4000):
         param_group['lr'] = lr
        
 def load_checkpoint(step, model_name="transformer"):
-    state_dict = t.load('./checkpoints_NOR/checkpoint_%s_%d.pth.tar'% (model_name, step))
+    state_dict = t.load('./checkpoints/checkpoint_%s_%d.pth.tar'% (model_name, step))
     new_state_dict = OrderedDict()
     for k, value in state_dict['model'].items():
         key = k[7:]
@@ -35,11 +35,15 @@ def main():
     
     m = nn.DataParallel(ModelStopToken().cuda())
     trans_model = Model()
-    trans_model.load_state_dict(load_checkpoint(250000, "transformer"))
+    trans_model.load_state_dict(load_checkpoint(100000, "transformer"))
+    for name, param in trans_model.named_parameters():
+        param.requires_grad = False
+        print(name, " : weight frozen")
     trans_model = nn.DataParallel(trans_model.cuda())
    
     m.train()
     trans_model.train(False)
+
 
     optimizer = t.optim.Adam(m.parameters(), lr=hp.lr)
 
@@ -55,6 +59,7 @@ def main():
                 
             character, mel, mel_input, pos_text, pos_mel, text_length, mel_length, fname = data        
             character = character.cuda()
+            mel = mel.cuda()
             mel_input = mel_input.cuda()
             pos_text = pos_text.cuda()
             pos_mel = pos_mel.cuda()
@@ -64,7 +69,7 @@ def main():
             for j, length in enumerate(mel_length):
                 stop_tokens[j, length-1] += 1
 
-            mel_pred, postnet_pred, attn, decoder_output, _, attn_dec = trans_model.forward(character, mel_input, pos_text, pos_mel)
+            mel_pred, postnet_pred, attn, decoder_output, _, attn_dec, attn_style = trans_model.forward(character, mel_input, pos_text, pos_mel, mel, pos_mel)
             stop_preds = m.forward(decoder_output)
 
             if global_step % 100 == 0:

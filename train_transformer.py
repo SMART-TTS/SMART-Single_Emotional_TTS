@@ -5,7 +5,8 @@ import torchvision.utils as vutils
 import os
 from tqdm import tqdm
 import sys
-#from util.utils import * 
+from utils import spectrogram2wav
+from scipy.io.wavfile import write
 from util.writer import get_writer
 import time
 #import torch
@@ -24,6 +25,15 @@ def get_mask_from_lengths(lengths):
     return mask
 
 def validate(m, val_loader, global_step, writer):
+#    m_post = ModelPostNet()
+#    state_dict = t.load('./checkpoints/checkpoint_%s_%d.pth.tar'% ('postnet', 250000))
+#    new_state_dict = OrderedDict()
+#    for k, value in state_dict['model'].items():
+#        key = k[7:]
+#        new_state_dict[key] = value
+#    m_post.load_state_dict(new_state_dict)
+#    m_post.cuda()
+#    m_post.eval()
     m.eval()
     with t.no_grad():
         n_data, val_loss = 0, 0
@@ -37,7 +47,7 @@ def validate(m, val_loader, global_step, writer):
             pos_text = pos_text.cuda()
             pos_mel = pos_mel.cuda()
             
-            mel_pred, postnet_pred, attn_probs, decoder_outputs, attns_enc, attns_dec = m.forward(character, mel_input, pos_text, pos_mel)
+            mel_pred, postnet_pred, attn_probs, decoder_outputs, attns_enc, attns_dec, attns_style = m.forward(character, mel_input, pos_text, pos_mel, mel, pos_mel)
 
             mel_loss = nn.L1Loss()(mel_pred, mel)
             post_mel_loss = nn.L1Loss()(postnet_pred, mel)
@@ -47,16 +57,28 @@ def validate(m, val_loader, global_step, writer):
             loss = mel_loss + post_mel_loss
             val_loss += loss.item()
         val_loss /= n_data
+#    mag_pred = m_post.forward(postnet_pred)
+#    for i, mag in enumerate(mag_pred[:3]):
+#        wav = spectrogram2wav(mag.detach().cpu().numpy())
+#        wav_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'wav')
+#        if not os.path.exists(wav_path):
+#            os.makedirs(wav_path)
+#        write(os.path.join(wav_path, "val_{}_synth_{}.wav".format(fname[i], global_step)), hp.sr, wav)
+#        print("written as val_{}_synth.wav".format(fname[i]))
+
     attns_enc_new=[]
     attns_dec_new=[]
     attn_probs_new=[]
+    attns_style_new=[]
     for i in range(len(attns_enc)):
         attns_enc_new.append(attns_enc[i].unsqueeze(0))
         attns_dec_new.append(attns_dec[i].unsqueeze(0))
         attn_probs_new.append(attn_probs[i].unsqueeze(0))
+        attns_style_new.append(attns_style[i].unsqueeze(0))
     attns_enc = t.cat(attns_enc_new, 0)
     attns_dec = t.cat(attns_dec_new, 0)
     attn_probs = t.cat(attn_probs_new, 0)
+    attns_style = t.cat(attns_style_new, 0)
 
     attns_enc = attns_enc.contiguous().view(attns_enc.size(0), hp.batch_size, hp.n_heads, attns_enc.size(2), attns_enc.size(3))
     attns_enc = attns_enc.permute(1,0,2,3,4)
@@ -64,9 +86,12 @@ def validate(m, val_loader, global_step, writer):
     attns_dec = attns_dec.permute(1,0,2,3,4)
     attn_probs = attn_probs.contiguous().view(attn_probs.size(0), hp.batch_size, hp.n_heads, attn_probs.size(2), attn_probs.size(3))
     attn_probs = attn_probs.permute(1,0,2,3,4)
+    attns_style = attns_style.contiguous().view(attns_style.size(0), hp.batch_size, hp.n_heads, attns_style.size(2), attns_style.size(3))
+    attns_style = attns_style.permute(1,0,2,3,4)
+
     save_dir = os.path.join(hp.checkpoint_path, hp.log_directory, 'figure')
     writer.add_losses(mel_loss.item(), post_mel_loss.item(), global_step, 'Validation')
-    writer.add_alignments(attns_enc.detach().cpu(), attns_dec.detach().cpu(), attn_probs.detach().cpu(), mel_length, text_length, global_step, 'Validation', save_dir)
+    writer.add_alignments(attns_enc.detach().cpu(), attns_dec.detach().cpu(), attn_probs.detach().cpu(), attns_style.detach().cpu(), mel_length, text_length, global_step, 'Validation', save_dir)
 
     msg = "Validation| loss : {:.4f} + {:.4f} = {:.4f}".format(mel_loss, post_mel_loss, loss)
     stream(msg)
@@ -98,8 +123,6 @@ def main():
     m.train()
     optimizer = t.optim.Adam(m.parameters(), lr=hp.lr)
 
-
-    pos_weight = t.FloatTensor([5.]).cuda()
     writer = get_writer(hp.checkpoint_path, hp.log_directory)
     cur_epoch = 0
 
@@ -123,7 +146,7 @@ def main():
             text_length = text_length.cuda()
             mel_length = mel_length.cuda()
             loading_time = time.time()
-            mel_pred, postnet_pred, attn_probs, decoder_output, attns_enc, attns_dec = m.forward(character, mel_input, pos_text, pos_mel)
+            mel_pred, postnet_pred, attn_probs, decoder_output, attns_enc, attns_dec, attns_style = m.forward(character, mel_input, pos_text, pos_mel, mel, pos_mel)
             mel_loss = nn.L1Loss()(mel_pred, mel)
             post_mel_loss = nn.L1Loss()(postnet_pred, mel)
 
