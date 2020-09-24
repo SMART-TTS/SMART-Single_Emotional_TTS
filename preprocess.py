@@ -11,52 +11,16 @@ import torch as t
 import math
 import argparse
 
-
-class LJDatasets(Dataset):
-    """LJSpeech dataset."""
-
-    def __init__(self, csv_file, root_dir):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the wavs.
-
-        """
-        self.landmarks_frame = pd.read_csv(csv_file, sep='|', header=None)
-        self.root_dir = root_dir
-
-    def load_wav(self, filename):
-        return librosa.load(filename, sr=hp.sample_rate)
-
-    def __len__(self):
-        return len(self.landmarks_frame)
-
-    def __getitem__(self, idx):
-        wav_name = os.path.join(self.root_dir, self.landmarks_frame.iloc[idx, 0]) + '.wav'
-        text = self.landmarks_frame.iloc[idx, 1]
-        fname = self.landmarks_frame.iloc[idx, 0]
-        text = np.asarray(text_to_sequence(text, [hp.cleaners]), dtype=np.int32)
-        mel = np.load(wav_name[:-4] + '.pt.npy')
-        mel_input = np.concatenate([np.zeros([1,hp.num_mels], np.float32), mel[:-1,:]], axis=0)
-        text_length = len(text)
-        pos_text = np.arange(1, text_length + 1)
-        pos_mel = np.arange(1, mel.shape[0] + 1)
-
-        sample = {'text': text, 'mel': mel, 'text_length':text_length, 'mel_input':mel_input, 'pos_mel':pos_mel, 'pos_text':pos_text}
-
-        return sample
-    
+  
 class KORDatasets(Dataset):
     """KOR_DB dataset"""
 
-    def __init__(self, csv_file, root_dir):
+    def __init__(self, csv_file):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the wavs.
         """
         self.landmarks_frame = pd.read_csv(csv_file, sep='|', header=None)
-        self.root_dir = root_dir
 
     def load_wav(self, filename):
         return librosa.load(filename, sr=hp.sample_rate)
@@ -75,53 +39,25 @@ class KORDatasets(Dataset):
         pos_text = np.arange(1, text_length + 1)
         pos_mel = np.arange(1, mel.shape[0] + 1)
         mel_length = len(mel)
-#        print("mel size:,", mel.shape)
         sample = {'text': text, 'mel': mel, 'text_length':text_length, 'mel_length':mel_length, 'mel_input':mel_input, 'pos_mel':pos_mel, 'pos_text':pos_text, 'fname':fname}
-
-        return sample
-
-class PostLJDatasets(Dataset):
-    """LJSpeech dataset."""
-
-    def __init__(self, csv_file, root_dir):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the wavs.
-
-        """
-        self.landmarks_frame = pd.read_csv(csv_file, sep='|', header=None)
-        self.root_dir = root_dir
-
-    def __len__(self):
-        return len(self.landmarks_frame)
-
-    def __getitem__(self, idx):
-        wav_name = os.path.join(self.root_dir, self.landmarks_frame.iloc[idx, 0]) + '.wav'
-        mel = np.load(wav_name[:-4] + '.pt.npy')
-        mag = np.load(wav_name[:-4] + '.mag.npy')
-        sample = {'mel':mel, 'mag':mag}
 
         return sample
 
 class PostKORDatasets(Dataset):
     """KORSpeech dataset."""
 
-    def __init__(self, csv_file, root_dir):
+    def __init__(self, csv_file):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the wavs.
 
         """
         self.landmarks_frame = pd.read_csv(csv_file, sep='|', header=None)
-        self.root_dir = root_dir
 
     def __len__(self):
         return len(self.landmarks_frame)
 
     def __getitem__(self, idx):
-#        preprocess_name = os.path.join(hp.preprocess_path, "{:05d}".format(self.landmarks_frame.iloc[idx, 0]))
         preprocess_name = os.path.join(hp.preprocess_path, self.landmarks_frame.iloc[idx, 0])
         mel = np.load(preprocess_name + '.pt.npy')
         mag = np.load(preprocess_name + '.mag.npy')
@@ -203,24 +139,14 @@ def get_param_size(model):
         params += tmp
     return params
 
-DB = "KOR" # ##i "KOR" or "LJ"
 def get_dataset(data_csv):
-    if DB == "KOR":
-        return KORDatasets(os.path.join(hp.data_path, data_csv), os.path.join(hp.data_path, 'wav_org'))
-    else:
-        return LJDatasets(os.path.join(hp.data_path, 'metadata_jka.csv'), os.path.join(hp.data_path, 'wavs'))
+    return KORDatasets(os.path.join(hp.data_path, data_csv))
 
 def get_stoptoken_dataset(data_csv):
-    if DB == "KOR":
-        return StopKORDatasets(os.path.join(hp.data_path, data_csv), os.path.join(hp.data_path, 'wav_org'))
-    else:
-        return LJDatasets(os.path.join(hp.data_path, 'metadata_jka.csv'), os.path.join(hp.data_path, 'wavs'))
+    return StopKORDatasets(os.path.join(hp.data_path, data_csv))
 
 def get_post_dataset(data_csv):
-    if DB == "KOR":
-        return PostKORDatasets(os.path.join(hp.data_path, data_csv), os.path.join(hp.data_path,'wav_org'))
-    else:
-        return PostLJDatasets(os.path.join(hp.data_path, 'metadata_jka.csv'), os.path.join(hp.data_path, 'wavs'))
+    return PostKORDatasets(os.path.join(hp.data_path, data_csv))
 
 def _pad_mel(inputs):
     _pad = 0

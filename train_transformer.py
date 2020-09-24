@@ -9,7 +9,6 @@ from utils import spectrogram2wav
 from scipy.io.wavfile import write
 from util.writer import get_writer
 import time
-#import torch
 def adjust_learning_rate(optimizer, step_num, warmup_step=4000):
     lr = hp.lr * warmup_step**0.5 * min(step_num * warmup_step**-1.5, step_num**-0.5)
     for param_group in optimizer.param_groups:
@@ -25,15 +24,15 @@ def get_mask_from_lengths(lengths):
     return mask
 
 def validate(m, val_loader, global_step, writer):
-#    m_post = ModelPostNet()
-#    state_dict = t.load('./checkpoints/checkpoint_%s_%d.pth.tar'% ('postnet', 250000))
-#    new_state_dict = OrderedDict()
-#    for k, value in state_dict['model'].items():
-#        key = k[7:]
-#        new_state_dict[key] = value
-#    m_post.load_state_dict(new_state_dict)
-#    m_post.cuda()
-#    m_post.eval()
+    m_post = ModelPostNet()
+    state_dict = t.load('./checkpoints/checkpoint_%s_%d.pth.tar'% ('postnet', 250000))
+    new_state_dict = OrderedDict()
+    for k, value in state_dict['model'].items():
+        key = k[7:]
+        new_state_dict[key] = value
+    m_post.load_state_dict(new_state_dict)
+    m_post.cuda()
+    m_post.eval()
     m.eval()
     with t.no_grad():
         n_data, val_loss = 0, 0
@@ -57,14 +56,14 @@ def validate(m, val_loader, global_step, writer):
             loss = mel_loss + post_mel_loss
             val_loss += loss.item()
         val_loss /= n_data
-#    mag_pred = m_post.forward(postnet_pred)
-#    for i, mag in enumerate(mag_pred[:3]):
-#        wav = spectrogram2wav(mag.detach().cpu().numpy())
-#        wav_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'wav')
-#        if not os.path.exists(wav_path):
-#            os.makedirs(wav_path)
-#        write(os.path.join(wav_path, "val_{}_synth_{}.wav".format(fname[i], global_step)), hp.sr, wav)
-#        print("written as val_{}_synth.wav".format(fname[i]))
+    mag_pred = m_post.forward(postnet_pred)
+    for i, mag in enumerate(mag_pred[:3]):
+        wav = spectrogram2wav(mag.detach().cpu().numpy())
+        wav_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'wav')
+        if not os.path.exists(wav_path):
+            os.makedirs(wav_path)
+        write(os.path.join(wav_path, "val_{}_synth_{}.wav".format(fname[i], global_step)), hp.sr, wav)
+        print("written as val_{}_synth.wav".format(fname[i]))
 
     attns_enc_new=[]
     attns_dec_new=[]

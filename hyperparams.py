@@ -3,10 +3,6 @@ num_mels = 80
 n_fft = 2048
 sr = 22050 
 preemphasis = 0.97
-#frame_shift = 0.0125 # seconds
-#frame_length = 0.05 # seconds
-#hop_length = int(sr*frame_shift) # samples.
-#win_length = int(sr*frame_length) # samples.
 hop_length = 256
 win_length = 1024
 n_mels = 80 # Number of Mel banks to generate
@@ -31,9 +27,6 @@ ref_filter_size3 = 128
 ref_kernel_size = 5 
 ref_gru_width = 64
 style_size = 4 
-
-downsample_kernel_size = 9
-downsample_stride = 5
 
 n_iter = 60
 # power = 1.5

@@ -50,8 +50,6 @@ def get_spectrograms(fpath):
     mel = mel.T.astype(np.float32)  # (T, n_mels)
     mag = mag.T.astype(np.float32)  # (T, 1+n_fft//2)
 
-    #mel = mel * 8. - 4.
-#    print(mel.shape)
     return mel, mag
 
 def spectrogram2wav(mag):
@@ -130,10 +128,3 @@ def get_sinusoid_encoding_table(n_position, d_hid, padding_idx=None):
 
     return t.FloatTensor(sinusoid_table)
 
-def guided_attention(N, T, g=0.2):
-    '''Guided attention. Refer to page 3 on the paper.'''
-    W = np.zeros((N, T), dtype=np.float32)
-    for n_pos in range(W.shape[0]):
-        for t_pos in range(W.shape[1]):
-            W[n_pos, t_pos] = 1 - np.exp(-(t_pos / float(T) - n_pos / float(N)) ** 2 / (2 * g * g))
-    return W

@@ -45,17 +45,17 @@ def load_waveglow(path):
 def synthesis(args):
     m = Model()
     m_post = ModelPostNet()
-#    m_stop = ModelStopToken()
+    m_stop = ModelStopToken()
     m.load_state_dict(load_checkpoint(args.restore_step1, "transformer"))
-#    m_stop.load_state_dict(load_checkpoint(args.restore_step3, "stop_token"))
+    m_stop.load_state_dict(load_checkpoint(args.restore_step3, "stop_token"))
     m_post.load_state_dict(load_checkpoint(args.restore_step2, "postnet"))
 
     m=m.cuda()
     m_post = m_post.cuda()
-#    m_stop = m_stop.cuda()
+    m_stop = m_stop.cuda()
     m.train(False)
     m_post.train(False)
-#    m_stop.train(False)
+    m_stop.train(False)
     test_dataset = get_dataset(hp.test_data_csv)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn_transformer, drop_last=True, num_workers=1)
     ref_dataset = get_dataset(hp.test_data_csv)
@@ -67,9 +67,9 @@ def synthesis(args):
     for i, data in enumerate(test_dataloader):
         character, mel, mel_input, pos_text, pos_mel, text_length, mel_length, fname = data
         ref_character, ref_mel, ref_mel_input, ref_pos_text, ref_pos_mel, ref_text_length, ref_mel_length, ref_fname = next(ref_dataloader_iter)
-#        stop_tokens = t.abs(pos_mel.ne(0).type(t.float) - 1)
+        stop_tokens = t.abs(pos_mel.ne(0).type(t.float) - 1)
         mel_input = t.zeros([1,1,80]).cuda()
-#        stop=[]
+        stop=[]
         character = character.cuda()
         mel = mel.cuda()
         mel_input = mel_input.cuda()
@@ -86,15 +86,15 @@ def synthesis(args):
             for i in range(args.max_len):
                 pos_mel = t.arange(1,mel_input.size(1)+1).unsqueeze(0).cuda()
                 mel_pred, postnet_pred, attn_probs, decoder_output, attns_enc, attns_dec, attns_style = m.forward(character, mel_input, pos_text, pos_mel, ref_mel, ref_pos_mel)
-#                stop_token = m_stop.forward(decoder_output)
+                stop_token = m_stop.forward(decoder_output)
                 mel_input = t.cat([mel_input, postnet_pred[:,-1:,:]], dim=1)
-#                stop.append(t.sigmoid(stop_token).squeeze(-1)[0,-1])
-#                if stop[-1] > 0.5:
-#                    print("stop token at " + str(i) + " is :", stop[-1])
-#                    print("model inference time: ", time.time() - start)
-#                    break
-#            if stop[-1] == 0:
-#                continue
+                stop.append(t.sigmoid(stop_token).squeeze(-1)[0,-1])
+                if stop[-1] > 0.5:
+                    print("stop token at " + str(i) + " is :", stop[-1])
+                    print("model inference time: ", time.time() - start)
+                    break
+            if stop[-1] == 0:
+                continue
             mag_pred = m_post.forward(postnet_pred)
             inf_time = time.time() - start
             print("inference time: ", inf_time)

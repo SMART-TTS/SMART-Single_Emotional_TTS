@@ -36,11 +36,6 @@ class Encoder(nn.Module):
 
         # Get positional embedding, apply alpha and add
         pos = self.pos_emb(pos)
-#        x = pos * self.alpha + x
-
-        # Positional dropout
-#        x = self.pos_dropout(x)
-
         # Attention encoder-encoder
         attns = list()
         for layer, ffn in zip(self.layers, self.ffns):
@@ -74,7 +69,6 @@ class MelDecoder(nn.Module):
         self.dotattn_layers = clones(Attention(kv_num_hidden, q_num_hidden, num_hidden, hp.n_heads), hp.n_layers)
         self.ffns = clones(FFN(q_num_hidden), hp.n_layers)
         self.mel_linear = Linear(q_num_hidden, hp.num_mels * hp.outputs_per_step)
-#        self.stop_linear = Linear(num_hidden, 1, w_init='sigmoid')
 
         self.postconvnet = PostConvNet(q_num_hidden)
 
@@ -167,12 +161,6 @@ class RefEncoder(nn.Module):
         self.linear1 = Linear(hp.ref_gru_width*2, hp.ref_gru_width)
         self.linear2 = Linear(hp.ref_gru_width, hp.style_size)
 
-        self.downsample = Conv(in_channels=hp.style_size*2,
-	                        out_channels=hp.style_size*2,
-                            kernel_size=hp.downsample_kernel_size,
-                            stride=hp.downsample_stride,
-                            padding=int(np.floor(hp.downsample_kernel_size/hp.downsample_stride)),
-                            w_init='relu')
        
     def forward(self, emb):
        inter_emb = emb.contiguous().transpose(1,2)
@@ -180,12 +168,9 @@ class RefEncoder(nn.Module):
        inter_emb = self.dropout(self.layer_norm2(t.relu(self.conv2(inter_emb)).contiguous().transpose(1,2))).transpose(1,2)
        inter_emb = self.dropout(self.layer_norm3(t.relu(self.conv3(inter_emb)).contiguous().transpose(1,2)))
        out_emb, last_state_emb = self.gru(inter_emb)
-#       out_emb = t.mean(out_emb, 1, keepdim=True)
        ref_logit = t.relu(self.linear1(out_emb))
        ref_logit = t.relu(self.linear2(ref_logit))
-#       ref_logit = self.downsample(ref_logit)
-#       print("ref_logit", ref_logit.shape)
-       
+      
        return ref_logit
 
 
