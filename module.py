@@ -341,7 +341,7 @@ class CBHG(nn.Module):
     """
     CBHG Module
     """
-    def __init__(self, hidden_size, K=16, projection_size = 256, num_gru_layers=2, max_pool_kernel_size=2, is_post=False):
+    def __init__(self, hidden_size, K=8, projection_size = 256, num_gru_layers=2, max_pool_kernel_size=2, highwaynet_size=128, is_post=False):
         """
         :param hidden_size: dimension of hidden unit
         :param K: # of convolution banks
@@ -353,6 +353,7 @@ class CBHG(nn.Module):
         super(CBHG, self).__init__()
         self.hidden_size = hidden_size
         self.projection_size = projection_size
+        self.highwaynet_size = highwaynet_size
         self.convbank_list = nn.ModuleList()
         self.convbank_list.append(nn.Conv1d(in_channels=projection_size,
                                                 out_channels=hidden_size,
@@ -385,11 +386,11 @@ class CBHG(nn.Module):
 
 
         self.max_pool = nn.MaxPool1d(max_pool_kernel_size, stride=1, padding=1)
+        self.dim_match = Linear(projection_size, highwaynet_size)
         self.highway = Highwaynet(self.projection_size)
         self.gru = nn.GRU(self.projection_size, self.hidden_size // 2, num_layers=num_gru_layers,
                           batch_first=True,
                           bidirectional=True)
-
 
     def _conv_fit_dim(self, x, kernel_size=3):
         if kernel_size % 2 == 0:
@@ -421,8 +422,11 @@ class CBHG(nn.Module):
         conv_projection = t.relu(self.batchnorm_proj_1(self._conv_fit_dim(self.conv_projection_1(conv_cat))))
         conv_projection = self.batchnorm_proj_2(self._conv_fit_dim(self.conv_projection_2(conv_projection))) + input_
 
+        # Dimension match
+        conv_projection = self.dim_match(conv_projection.transpose(1,2))
+
         # Highway networks
-        highway = self.highway.forward(conv_projection.transpose(1,2))
+        highway = self.highway.forward(conv_projection)
         
 
         # Bidirectional GRU
@@ -437,7 +441,7 @@ class Highwaynet(nn.Module):
     """
     Highway network
     """
-    def __init__(self, num_units, num_layers=4):
+    def __init__(self, num_units=128, num_layers=4):
         """
         :param num_units: dimension of hidden unit
         :param num_layers: # of highway layers
