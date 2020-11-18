@@ -129,6 +129,12 @@ def main():
 
     m = nn.DataParallel(m.cuda())
     m.train()
+
+    vocoder = SmartVocoder(Hyperparameters(parse_args()))
+    vocoder.load_state_dict(t.load('./mel2audio/checkpoint_step000588458.pth')["state_dict"])
+    vocoder=vocoder.cuda()
+    vocoder.eval()
+	
     optimizer = t.optim.Adam(m.parameters(), lr=hp.lr)
 
     writer = get_writer(hp.checkpoint_path, hp.log_directory)
@@ -146,6 +152,7 @@ def main():
                 adjust_learning_rate(optimizer, global_step)
                 
             character, mel, mel_input, pos_text, pos_mel, text_length, mel_length, fname =  data
+
             character = character.cuda()
             mel = mel.cuda()
             mel_input = mel_input.cuda()
@@ -173,7 +180,7 @@ def main():
                 optimizer.zero_grad()
 
             if global_step % hp.val_step == 0 or global_step==1:
-                validate(m, val_dataloader, global_step, writer)
+                validate(m, vocoder, val_dataloader, global_step, writer)
 
             if global_step % hp.save_step == 0:
                 t.save({'model':m.state_dict(),
