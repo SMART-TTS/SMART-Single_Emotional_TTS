@@ -9,6 +9,7 @@ import librosa
 # ##i hrim fixes : mel.pt, mag.mag are saved in {projectDir}/preprocessed
 
 class PrepareDataset(Dataset):
+    """LJSpeech dataset."""
 
     def __init__(self, csv_file, root_dir):
         """
@@ -29,7 +30,7 @@ class PrepareDataset(Dataset):
     def __getitem__(self, idx):
 
         fname = self.landmarks_frame.iloc[idx,0]
-        spkr, emo, fnum = fname.strip().split('_')	# spkr_emo_fnum
+        spkr, emo, fnum = fname.strip().split('_')
         wav_name = os.path.join(self.root_dir, spkr, emo, 'wav_22', ("{:05d}".format(int(fnum)) + '.wav'))
         preprocss_name = os.path.join(hp.preprocess_path, fname)
         mel, mag = get_spectrograms(wav_name)
