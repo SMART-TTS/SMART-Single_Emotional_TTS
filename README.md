@@ -2,6 +2,9 @@
 This repository is the official implementation of SMART-Single_Emotional_TTS
 
 ## Requirements
+..1. python 3.7.9
+..2.
+
 To install requirements:
 <pre>
 <code>
