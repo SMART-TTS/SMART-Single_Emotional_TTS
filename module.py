@@ -207,7 +207,7 @@ class MultiheadAttention(nn.Module):
         self.num_hidden_k = num_hidden_k	#64
         self.attn_dropout = nn.Dropout(p=0.1)
 
-    def forward(self, key, value, query, mask=None, query_mask=None):
+    def forward(self, key, value, query, mask=None, query_mask=None, kv_mask=None):
         # Get attention score
         attn = t.bmm(query, key.transpose(1, 2))	#batch matrix-matrix product
         attn = attn / math.sqrt(self.num_hidden_k)
@@ -217,6 +217,8 @@ class MultiheadAttention(nn.Module):
             attn = attn.masked_fill(mask, -2 ** 32 + 1)
             attn = t.softmax(attn, dim=-1)
         else:
+            if kv_mask is not None:
+                attn[-2:] = attn[-2:].masked_fill(kv_mask, -2 ** 32 + 1)
             attn = t.softmax(attn, dim=-1)
 
         # Masking to ignore padding (query side)
@@ -258,7 +260,7 @@ class Attention(nn.Module):
 
         self.layer_norm_1 = nn.LayerNorm(num_hidden)
 
-    def forward(self, memory, decoder_input, mask=None, query_mask=None):
+    def forward(self, memory, decoder_input, mask=None, query_mask=None, kv_mask=None):
 
         batch_size = memory.size(0)
         seq_k = memory.size(1)
@@ -270,6 +272,8 @@ class Attention(nn.Module):
             query_mask = query_mask.repeat(self.h, 1, 1)
         if mask is not None:
             mask = mask.repeat(self.h, 1, 1)
+        if kv_mask is not None:
+            kv_mask = kv_mask.repeat(2, 1, 1)	# [2*B, t', N]
 
         # Make multihead
         key = self.key(memory).view(batch_size, seq_k, self.h, self.num_hidden_per_attn)
@@ -282,7 +286,7 @@ class Attention(nn.Module):
 
 #        print("at Attention, key shape : ", key.shape)
         # Get context vector
-        result, attns = self.multihead(key, value, query, mask=mask, query_mask=query_mask)
+        result, attns = self.multihead(key, value, query, mask=mask, query_mask=query_mask, kv_mask=kv_mask)
         # Concatenate all multihead context vector
         result = result.view(self.h, batch_size, seq_q, self.num_hidden_per_attn)
         result = result.permute(1, 2, 0, 3).contiguous().view(batch_size, seq_q, -1)
