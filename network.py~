@@ -48,6 +48,20 @@ class LengthRegulator(nn.Module):
         return output, pos_mel, weights
 
 # add duration predictor
+class Duration_Linear(nn.Module):
+    def __init__(self):
+        super(Duration_Linear, self).__init__()
+        self.linear1 = Linear(hp.hidden_size, 2*hp.hidden_size)
+        self.stop_linear = Linear(2*hp.hidden_size, 1)
+        self.relu = nn.ReLU()
+
+    def forward(self, encoder_output, duration_mask):
+        # duration
+        duration = self.stop_linear.forward(self.linear1.forward(encoder_output))
+        duration = self.relu(duration)
+        duration = t.squeeze(duration)
+        duration = duration * duration_mask
+        return duration
 
 
 
