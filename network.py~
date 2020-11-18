@@ -83,7 +83,8 @@ class Encoder(nn.Module):
         self.ffns = clones(FFN(num_hidden), hp.n_layers)
 
     def forward(self, x, pos):
-
+        duration_mask = pos.ne(0).type(t.float)
+        batch_size = x.size(0)
         # Get character mask
         if self.training:
             c_mask = pos.ne(0).type(t.float)
@@ -106,7 +107,7 @@ class Encoder(nn.Module):
             x = ffn(x)
             attns.append(attn)
 
-        return x, c_mask, attns
+        return x, c_mask, attns, duration_mask
 
 
 class MelDecoder(nn.Module):
@@ -123,6 +124,9 @@ class MelDecoder(nn.Module):
         self.pos_dropout = nn.Dropout(p=0.1)
         self.alpha = nn.Parameter(t.ones(1))
         self.decoder_prenet = Prenet(hp.num_mels, num_hidden * 2, num_hidden, p=0.2)
+        self.mono_prenet = Prenet(num_hidden, num_hidden * 2, num_hidden, p=0.2)
+        self.decoder_mono_prenet = Prenet(num_hidden, num_hidden * 2, num_hidden, p=0.2)
+
         self.norm = Linear(q_num_hidden, q_num_hidden)
 
         self.selfattn_layers = clones(Attention(q_num_hidden, q_num_hidden, num_hidden, hp.n_heads), hp.n_layers)
@@ -133,7 +137,7 @@ class MelDecoder(nn.Module):
 
         self.postconvnet = PostConvNet(q_num_hidden)
 
-    def forward(self, memory, style, decoder_input, c_mask, pos, ref_pos):
+    def forward(self, memory, style, decoder_input, c_mask, pos, ref_pos, kv_mask=None):
         batch_size = memory.size(0)
         decoder_len = decoder_input.size(1)
         ref_len = style.size(1)
@@ -157,6 +161,10 @@ class MelDecoder(nn.Module):
         # Decoder pre-network
         decoder_input = self.decoder_prenet(decoder_input)
 
+        mono_inter = self.mono_prenet(mono_inter)
+        decoder_input = decoder_input + mono_inter
+        decoder_input = self.decoder_mono_prenet(decoder_input)
+
         # Centered position
         decoder_input = self.norm(decoder_input)
 
@@ -173,10 +181,14 @@ class MelDecoder(nn.Module):
         attn_style_list = list()
         attn_dec_list = list()
 
-        for selfattn, styleattn, dotattn, ffn in zip(self.selfattn_layers, self.styleattn_layers, self.dotattn_layers, self.ffns):
+        for idx, (selfattn, styleattn, dotattn, ffn) in enumerate(zip(self.selfattn_layers, self.styleattn_layers, self.dotattn_layers, self.ffns)):
             decoder_input, attn_dec = selfattn(decoder_input, decoder_input, mask=mask, query_mask=m_mask)
-            decoder_input, attn_dot = dotattn(memory, decoder_input, mask=zero_mask, query_mask=m_mask)
-            decoder_input, attn_style = styleattn(style, decoder_input, mask=style_mask, query_mask=m_mask)
+            if idx == 0:
+                decoder_input, attn_dot = dotattn(memory, decoder_input, mask=zero_mask, query_mask=m_mask, kv_mask=kv_mask)
+            else:
+                decoder_input, attn_dot = dotattn(memory, decoder_input, mask=zero_mask, query_mask=m_mask)
+
+             decoder_input, attn_style = styleattn(style, decoder_input, mask=style_mask, query_mask=m_mask)
             decoder_input = ffn(decoder_input)
             attn_dot_list.append(attn_dot)
             attn_style_list.append(attn_style)
@@ -221,7 +233,7 @@ class RefEncoder(nn.Module):
         self.dropout = nn.Dropout(p=0.2)
         self.linear1 = Linear(hp.ref_gru_width*2, hp.ref_gru_width)
         self.linear2 = Linear(hp.ref_gru_width, hp.style_size)
-
+        self.coarse_layer = Linear(hp.ref_gru_width*2, hp.coarse_size)
        
     def forward(self, emb):
        inter_emb = emb.contiguous().transpose(1,2)
@@ -229,47 +241,12 @@ class RefEncoder(nn.Module):
        inter_emb = self.dropout(self.layer_norm2(t.relu(self.conv2(inter_emb)).contiguous().transpose(1,2))).transpose(1,2)
        inter_emb = self.dropout(self.layer_norm3(t.relu(self.conv3(inter_emb)).contiguous().transpose(1,2)))
        out_emb, last_state_emb = self.gru(inter_emb)
+       coarse_emb = t.mean(out_emb, 1, keepdim=True)
+       coarse_emb = self.coarse_layer(coarse_emb)
        ref_logit = t.relu(self.linear1(out_emb))
        ref_logit = t.relu(self.linear2(ref_logit))
       
-       return ref_logit
-
-
-class ModelStopToken(nn.Module):
-    def __init__(self):
-        super(ModelStopToken, self).__init__()
-        self.linear1 = Linear(hp.hidden_size, 2*hp.hidden_size, w_init='sigmoid')
-        self.stop_linear = Linear(2*hp.hidden_size, 1, w_init='sigmoid')
-
-    def forward(self, decoder_output):
-        # Stop tokens
-        stop_tokens = self.stop_linear(t.relu(self.linear1(decoder_output)))
-        return stop_tokens
-
-class Model(nn.Module):
-    """
-    Transformer Network
-    """
-    def __init__(self):
-        super(Model, self).__init__()
-        self.encoder = Encoder(hp.embedding_size, hp.hidden_size)	# embedding size = 512, hidden size = 256
-        self.ref_encoder = RefEncoder()
-        self.decoder = MelDecoder(hp.text_hidden_size, hp.style_size, hp.history_hidden_size, hp.hidden_size)
-        self.num_params()
-
-    def forward(self, characters, mel_input, pos_text, pos_mel, ref_mel, ref_pos_mel):
-        memory, c_mask, attns_enc = self.encoder(characters, pos=pos_text)
-        style = self.ref_encoder(ref_mel)
-        mel_output, postnet_output, attn_probs, decoder_output, attns_dec, attns_style = self.decoder(memory, style, mel_input, c_mask,
-                                                                                             pos=pos_mel, ref_pos=ref_pos_mel)
-
-        return mel_output, postnet_output, attn_probs, decoder_output, attns_enc, attns_dec, attns_style
-
-    def num_params(self, print_out=True):
-        parameters = filter(lambda p: p.requires_grad, self.parameters())
-        parameters = sum([np.prod(p.size()) for p in parameters]) / 1000000
-        if print_out:
-            print('Trainable Parameters: %.3fM' % parameters)
+       return ref_logit, coarse_emb
 
 class ModelPostNet(nn.Module):
     """
@@ -280,7 +257,7 @@ class ModelPostNet(nn.Module):
         self.pre_projection = Conv(hp.n_mels, hp.hidden_size)
         self.cbhg = CBHG(hp.hidden_size)
         self.post_projection = Conv(hp.hidden_size, (hp.n_fft // 2) + 1)
-        self.num_params()
+#        self.num_params()
 
     def forward(self, mel):
         mel = mel.transpose(1, 2)
@@ -288,6 +265,47 @@ class ModelPostNet(nn.Module):
         mel = self.cbhg(mel).transpose(1, 2)
         mag_pred = self.post_projection(mel).transpose(1, 2)
         return mag_pred
+
+
+class Model(nn.Module):
+    """
+    Transformer Network
+    """
+    def __init__(self):
+        super(Model, self).__init__()
+        self.encoder = Encoder(hp.embedding_size, hp.hidden_size)	# embedding size = 512, hidden size = 256
+        self.ref_encoder = RefEncoder()
+        self.decoder = MelDecoder(hp.text_hidden_size, hp.style_size, hp.history_hidden_size, hp.hidden_size)
+
+        self.postnet = ModelPostNet()
+        self.memory_coarse_layer = Linear(hp.coarse_size + hp.hidden_size, hp.hidden_size)
+        self.duration_predictor = Duration_Linear()
+        self.length_regulator = LengthRegulator()
+        self.num_params()
+
+
+    def forward(self, characters, mel_input, pos_text, pos_mel, ref_mel, ref_pos_mel, mel_max_length_    array=None):
+        memory, c_mask, attns_enc, duration_mask = self.encoder(characters, pos=pos_text)
+        style, coarse_emb = self.ref_encoder(ref_mel)
+        memory = t.cat((memory, coarse_emb.expand(-1, memory.size(1), -1)), -1)
+        memory = self.memory_coarse_layer(memory)
+
+        duration_predictor_output = self.duration_predictor.forward(memory.clone().detach(), duration    _mask)
+        duration = t.ceil(duration_predictor_output.clone().detach())  # this make gradient to zero
+        duration = duration * duration_mask
+
+        if mel_max_length_array is not None:
+            mel_max_length = mel_max_length_array[0]
+            monotonic_interpolation, pos_mel_, weights = self.length_regulator(memory, duration, dura    tion_mask, mel_max_length=mel_max_length)
+            mel_output, postnet_output, attn_probs, decoder_output, attns_dec, attns_style = self.dec    oder(memory, style, mel_input, c_mask,
+                                                                                             pos=pos_    mel, ref_pos=ref_pos_mel, mono_inter=monotonic_interpolation[:,:mel_input.shape[1]])
+        else:
+            monotonic_interpolation, pos_mel_, weights = self.length_regulator(memory, duration, dura    tion_mask)
+            mel_output, postnet_output, attn_probs, decoder_output, attns_dec, attns_style = self.dec    oder(memory, style, mel_input, c_mask,
+                                                                                             pos=pos_    mel, ref_pos=ref_pos_mel, mono_inter=monotonic_interpolation[:,:mel_input.shape[1]])
+
+        post_linear = self.postnet(postnet_output)
+        return mel_output, postnet_output, attn_probs, decoder_output, attns_enc, attns_dec, attns_st    yle, post_linear, duration_predictor_output, duration, weights
 
     def num_params(self, print_out=True):
         parameters = filter(lambda p: p.requires_grad, self.parameters())
