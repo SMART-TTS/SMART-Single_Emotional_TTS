@@ -83,7 +83,8 @@ class Encoder(nn.Module):
         self.ffns = clones(FFN(num_hidden), hp.n_layers)
 
     def forward(self, x, pos):
-
+        duration_mask = pos.ne(0).type(t.float)
+        batch_size = x.size(0)
         # Get character mask
         if self.training:
             c_mask = pos.ne(0).type(t.float)
@@ -106,7 +107,7 @@ class Encoder(nn.Module):
             x = ffn(x)
             attns.append(attn)
 
-        return x, c_mask, attns
+        return x, c_mask, attns, duration_mask
 
 
 class MelDecoder(nn.Module):

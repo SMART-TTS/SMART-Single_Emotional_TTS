@@ -47,7 +47,6 @@ class LengthRegulator(nn.Module):
         # pos_mel is necessary when you do positional encoding to decoder at inference for Non-Autore    gressive model
         return output, pos_mel, weights
 
-# add duration predictor
 class Duration_Linear(nn.Module):
     def __init__(self):
         super(Duration_Linear, self).__init__()
