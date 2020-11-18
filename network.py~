@@ -38,6 +38,15 @@ class LengthRegulator(nn.Module):
         output = t.bmm(weights, x)  # (batch, T, L) x (batch, L, num_hidden) = (batch, T, num_hidden)
 
         return output, pos_mel, weights
+
+    def forward(self, x, duration_predictor_output, duration_mask, mel_max_length = None):  # x = enc    oder_output
+        if mel_max_length is not None:  # for training & validation
+            output, pos_mel, weights = self.length_regul(x, duration_predictor_output, duration_mask,     mel_max_length)
+        else:  # for inference
+            output, pos_mel, weights = self.length_regul(x, duration_predictor_output, duration_mask)      # output: (batch, seq_mel_pred, hp.hidden_size)
+        # pos_mel is necessary when you do positional encoding to decoder at inference for Non-Autore    gressive model
+        return output, pos_mel, weights
+
 # add duration predictor
 
 
