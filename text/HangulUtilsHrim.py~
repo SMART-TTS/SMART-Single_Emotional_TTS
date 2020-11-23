@@ -49,7 +49,21 @@ def syllables_to_cjj(syllable_seq): # ##i cjj : Cho/Jung/Jong in Hangul
     return cjj_id
 
 def hangul_to_sequence(hangul_text):
+#    start = time.time()
+#    G2P = g2p()
+#    hangul_text = G2P(hangul_text, descriptive=True, group_vowels=True)
+#    print("G2P time", time.time()-start)
+#    print(hangul_text)
+#    with open('/home/bjchoi/test.txt', 'w') as f:
+#        f.write(hangul_text)
+
     hangul_text = hangul_text + u"␃"  # ␃: EOS
 
     return syllables_to_cjj(hangul_text)
 
+#m = hangul_to_sequence(hangul_text='이번 역은 낙성대, 낙성대 역입니다, 내리실 문은 없습니다. 헣, 헇! 홇? 숂@ 칵 다 우 다')
+#m = hangul_to_sequence(hangul_text='오늘은 5월 17일, 난 32살이야. 이번 역은 2호선 낙성대 역입니다, 내리실')
+
+#k = hangul_to_sequence(hangul_text='ㅇㅣㅂㅓㄴ ㅇㅕㄱㅇㅡㄴ ㄴㅏㄱㅅㅓㅇㄷㅐ ㅇㅕㄱㅇㅣㅂㄴㅣㄷㅏ')
+#print(m)
+#print(k)
