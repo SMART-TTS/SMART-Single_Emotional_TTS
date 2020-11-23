@@ -4,16 +4,27 @@ Transformer-TTS 기반의 SMART-TTS의 Single speaker emotional TTS 모델입니
 "소량 데이터만을 이용한 고품질 종단형 기반의 딥러닝 다화자 운율 및 감정 복제 기술 개발"
 과제의 일환으로 공개된 코드입니다.
 
-SMART-TTS_Single_Emotional 모델은 Transformer-TTS 모델을 기반으로
+SMART-TTS_Single_Emotional 모델은 [Transformer-TTS 모델](https://github.com/soobinseo/Transformer-TTS)을 기반으로
 Reference로 부터 variable-length style embedding을 추출하여 반영하는 Unsupervised Style TTS 모델입니다.
 
 Transformer-TTS 모델을 기반으로 하여 아래 부분들을 개선하였습니다.
+
+Done
 * Monotonic interpolation을 이용한 Attention failure 개선
 * Sliding window attention masking을 이용한 Attention failure 개선 및 stop token 대체
 * Variable-length style embedding 을 이용한 global & local style embedding 추출
 * Scaled dot-product attention을 이용한 style conditioning
+* STFT loss 추가
 * SMART-Vocoder를 이용한 고품질 합성음
 * SMART-G2P를 이용한 한/영 code-mixed text 처리
+* Linear interpolation을 이용한 합성음 길이 조정
+
+To do
+* Multi-speaker TTS
+* Speaker / Style disentanglement
+* Speech rate conditioning
+* Speaker & style learning from small dataset
+* Style TTS with style tag conditioning
 
 
 ## Requirements
@@ -50,7 +61,7 @@ python train_transformer.py
 To evaluate, run:
 <pre>
 <code>
-python synthesize.py --rhythm_scale=1.0 --restore_step1=500000
+python synthesize.py --rhythm_scale=1.0 --restore_step1=860000
 </code>
 </pre>
 
