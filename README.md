@@ -7,6 +7,8 @@ Transformer-TTS 기반의 SMART-TTS의 Single speaker emotional TTS 모델입니
 SMART-TTS_Single_Emotional 모델은 [Transformer-TTS 모델](https://github.com/soobinseo/Transformer-TTS)을 기반으로
 Reference로 부터 variable-length style embedding을 추출하여 반영하는 Unsupervised Style TTS 모델입니다.
 
+연구실 내부 보유중인 한국어 다감정 (5감정) DB로 훈련한 pretrained model은 [이곳](https://drive.google.com/file/d/1iwx0ENNEiYrA3glCyF26rXkdBM5Wh-7A/view?usp=sharing)에서 다운로드 받으실 수 있습니다.
+
 Transformer-TTS 모델을 기반으로 하여 아래 부분들을 개선하였습니다.
 
 Done
