@@ -67,6 +67,8 @@ python synthesize.py --rhythm_scale=1.0 --restore_step1=860000
 
 ## Results
 Synthesized audio samples can be found in ./samples
+현재 ./samples에 저장된 샘플들은 연구실 보유중인 DB를 사용해 학습한 샘플이며,
+내년초 새로운 한국어 DB 공개 예정에 있습니다.
 
 ## Reference code
 * Transformer-TTS : https://github.com/soobinseo/Transformer-TTS
