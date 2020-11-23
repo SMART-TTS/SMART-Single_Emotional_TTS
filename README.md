@@ -18,7 +18,6 @@ Done
 * Scaled dot-product attention을 이용한 style conditioning
 * STFT loss 추가
 * SMART-Vocoder를 이용한 고품질 합성음
-* SMART-G2P를 이용한 한/영 code-mixed text 처리
 * Linear interpolation을 이용한 합성음 길이 조정
 
 To do
