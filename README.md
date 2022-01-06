@@ -77,4 +77,5 @@ Synthesized audio samples can be found in ./samples
 * SMART-Vocoder : https://github.com/SMART-TTS/SMART-G2P
 * SMART-G2P : https://github.com/SMART-TTS/SMART-Vocoder
 
+## Technical document
 본 프로젝트 관련 개선사항들에 대한 기술문서는 [여기](https://drive.google.com/file/d/1dC0qdrnmIgYNJ9s0AYiWSBXKS6aBECVx/view?usp=sharing)를 참고해 주세요.
