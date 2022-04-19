@@ -70,9 +70,12 @@ python synthesize.py --rhythm_scale=1.0 --restore_step1=860000
 Synthesized audio samples can be found in ./samples
 
 현재 ./samples에 저장된 샘플들은 연구실 보유중인 DB를 사용해 학습한 샘플이며,
-내년초 새로운 한국어 DB 공개 예정에 있습니다.
+내년초 새로운 한국어 DB 공개 예정입니다.
 
 ## Reference code
 * Transformer-TTS : https://github.com/soobinseo/Transformer-TTS
 * SMART-Vocoder : https://github.com/SMART-TTS/SMART-G2P
 * SMART-G2P : https://github.com/SMART-TTS/SMART-Vocoder
+
+## Technical document
+본 프로젝트 관련 개선사항들에 대한 기술문서는 [여기](https://drive.google.com/file/d/1dC0qdrnmIgYNJ9s0AYiWSBXKS6aBECVx/view?usp=sharing)를 참고해 주세요.
