@@ -387,8 +387,8 @@ class CBHG(nn.Module):
 
         self.max_pool = nn.MaxPool1d(max_pool_kernel_size, stride=1, padding=1)
         self.dim_match = Linear(projection_size, highwaynet_size)
-        self.highway = Highwaynet()
-        self.gru = nn.GRU(self.highwaynet_size, self.hidden_size // 2, num_layers=num_gru_layers,
+        self.highway = Highwaynet(self.projection_size)
+        self.gru = nn.GRU(self.projection_size, self.hidden_size // 2, num_layers=num_gru_layers,
                           batch_first=True,
                           bidirectional=True)
 

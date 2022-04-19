@@ -137,7 +137,7 @@ class MelDecoder(nn.Module):
 
         self.postconvnet = PostConvNet(q_num_hidden)
 
-    def forward(self, memory, style, decoder_input, c_mask, pos, ref_pos, kv_mask=None):
+    def forward(self, memory, style, decoder_input, c_mask, pos, ref_pos, mono_inter=None, kv_mask=None):
         batch_size = memory.size(0)
         decoder_len = decoder_input.size(1)
         ref_len = style.size(1)
