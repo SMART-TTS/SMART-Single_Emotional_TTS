@@ -10,9 +10,9 @@ from scipy.io.wavfile import write
 from util.writer import get_writer
 import time
 #import torch
-#from mel2audio.args import parse_args
-#from mel2audio.hps import Hyperparameters
-#from mel2audio.model import SmartVocoder
+from mel2audio.args import parse_args
+from mel2audio.hps import Hyperparameters
+from mel2audio.model import SmartVocoder
 import soundfile
 def adjust_learning_rate(optimizer, step_num, warmup_step=4000):
     lr = hp.lr * warmup_step**0.5 * min(step_num * warmup_step**-1.5, step_num**-0.5)
@@ -28,7 +28,7 @@ def get_mask_from_lengths(lengths):
     mask = (lengths.unsqueeze(1) > ids).to(t.bool)
     return mask
 
-def validate(m, val_loader, global_step, writer):
+def validate(m, vocoder, val_loader, global_step, writer):
     m.eval()
  
     with t.no_grad():
@@ -70,20 +70,20 @@ def validate(m, val_loader, global_step, writer):
         B, C, T = mel_v.shape
         z = t.randn(1, 1, T*hp.hop_length).cuda()
         z = z * 0.6     # Temp
-#        with t.no_grad():
-#            y_gen = vocoder.reverse(z, mel_v).squeeze()
-#            wav = y_gen.to(t.device("cpu")).data.numpy()
+        with t.no_grad():
+            y_gen = vocoder.reverse(z, mel_v).squeeze()
+            wav = y_gen.to(t.device("cpu")).data.numpy()
 
         mel_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'mel')
         if not os.path.exists(mel_path):
             os.makedirs(mel_path)
         np.save(os.path.join(mel_path, "val_{}_synth_{}.mel".format(fname[i], global_step)), mel_pred.unsqueeze(0).cpu())
 
-#        wav_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'wav')
-#        if not os.path.exists(wav_path):
-#            os.makedirs(wav_path)
-#        write(os.path.join(wav_path, "val_{}_synth_{}.wav".format(fname[i], global_step)), hp.sr, wav)
-#        print("written as val_{}_synth.wav".format(fname[i]))
+        wav_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'wav')
+        if not os.path.exists(wav_path):
+            os.makedirs(wav_path)
+        write(os.path.join(wav_path, "val_{}_synth_{}.wav".format(fname[i], global_step)), hp.sr, wav)
+        print("written as val_{}_synth.wav".format(fname[i]))
 
     for i, mel_ in enumerate(mel[:3]):
         mel_v = mel_.unsqueeze(0).transpose(2,1)
@@ -91,20 +91,20 @@ def validate(m, val_loader, global_step, writer):
         B, C, T = mel_v.shape
         z = t.randn(1, 1, T*hp.hop_length).cuda()
         z = z * 0.6     # Temp
-#        with t.no_grad():
-#            y_gen = vocoder.reverse(z, mel_v).squeeze()
-#            wav = y_gen.to(t.device("cpu")).data.numpy()
+        with t.no_grad():
+            y_gen = vocoder.reverse(z, mel_v).squeeze()
+            wav = y_gen.to(t.device("cpu")).data.numpy()
 
         mel_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'mel_recon')
         if not os.path.exists(mel_path):
             os.makedirs(mel_path)
         np.save(os.path.join(mel_path, "val_{}_synth_{}.mel".format(fname[i], global_step)), mel_.unsqueeze(0).cpu())
 
-#        wav_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'wav_recon')
-#        if not os.path.exists(wav_path):
-#            os.makedirs(wav_path)
-#        write(os.path.join(wav_path, "val_{}_synth_{}.wav".format(fname[i], global_step)), hp.sr, wav)
-#        print("written as val_{}_synth.wav".format(fname[i]))
+        wav_path = os.path.join(os.path.join(hp.checkpoint_path, hp.log_directory), 'wav_recon')
+        if not os.path.exists(wav_path):
+            os.makedirs(wav_path)
+        write(os.path.join(wav_path, "val_{}_synth_{}.wav".format(fname[i], global_step)), hp.sr, wav)
+        print("written as val_{}_synth.wav".format(fname[i]))
 
     attns_enc_new=[]
     attns_dec_new=[]
@@ -162,10 +162,10 @@ def main():
     m = nn.DataParallel(m.cuda())
     m.train()
 
-#    vocoder = SmartVocoder(Hyperparameters(parse_args()))
-#    vocoder.load_state_dict(t.load('./mel2audio/checkpoint_step000588458.pth')["state_dict"])
-#    vocoder=vocoder.cuda()
-#    vocoder.eval()
+    vocoder = SmartVocoder(Hyperparameters(parse_args()))
+    vocoder.load_state_dict(t.load('./mel2audio/checkpoint_step000588458.pth')["state_dict"])
+    vocoder=vocoder.cuda()
+    vocoder.eval()
 
     optimizer = t.optim.Adam(m.parameters(), lr=hp.lr)
 
@@ -224,7 +224,7 @@ def main():
                 optimizer.zero_grad()
 
             if global_step % hp.val_step == 0 or global_step==1:
-                validate(m, val_dataloader, global_step, writer)
+                validate(m, vocoder, val_dataloader, global_step, writer)
 
             if global_step % hp.save_step == 0:
                 t.save({'model':m.state_dict(),
